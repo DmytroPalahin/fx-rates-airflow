@@ -1,0 +1,12 @@
+# only pyproject.toml, README.md and src/ are copied into the image
+.venv
+.git
+.env
+**/__pycache__
+**/.pytest_cache
+.ruff_cache
+dags
+sql
+tests
+docs
+scripts

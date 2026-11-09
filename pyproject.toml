@@ -1,0 +1,58 @@
+[project]
+name = "fx-rates-airflow"
+version = "0.1.0"
+description = "Learning project: daily FX rates (ECB + NBU) orchestrated with Apache Airflow 3"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# Runtime dependencies of the `fx_pipeline` package.
+# They are installed into the Airflow Docker image as well (see Dockerfile),
+# so keep this list small and compatible with the official Airflow constraints.
+dependencies = [
+    "requests>=2.31",
+]
+
+[dependency-groups]
+# Mirror of what runs inside the Docker image. Installed locally only so that
+# the IDE can autocomplete Airflow APIs and the DAG integrity tests can parse DAGs.
+# Versions follow https://raw.githubusercontent.com/apache/airflow/constraints-3.4.0/constraints-3.12.txt
+airflow = [
+    "apache-airflow==3.4.0",
+    "apache-airflow-providers-amazon==9.39.0",
+    "apache-airflow-providers-common-sql==2.4.0",
+    "apache-airflow-providers-postgres==7.1.1",
+    "apache-airflow-providers-standard==1.21.0",
+]
+dev = [
+    { include-group = "airflow" },
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fx_pipeline"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# DAG files import helpers from dags/fx_shared, exactly like the Airflow
+# dag-processor does (it puts the dags folder on sys.path).
+# "src" too: in iCloud Drive macOS may flag the editable-install .pth file as
+# hidden, Python then skips it and `import fx_pipeline` fails.
+pythonpath = ["dags", "src"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "AIR"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fx_pipeline", "fx_shared"]

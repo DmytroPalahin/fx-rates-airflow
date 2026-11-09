@@ -1,0 +1,184 @@
+# Local stack: Airflow 3 (LocalExecutor) + Postgres warehouse + S3-compatible storage.
+#
+#   airflow-apiserver      UI + REST API + Task Execution API     http://localhost:${AIRFLOW_PORT}
+#   airflow-scheduler      decides what runs when; LocalExecutor runs tasks here
+#   airflow-dag-processor  parses files in dags/ and stores serialized DAGs
+#   airflow-triggerer      runs deferred (async) tasks
+#   airflow-db             Airflow METADATA database (state of DAG runs, tasks, ...)
+#   fx-postgres            our DATA warehouse (core.*, marts.*)        localhost:5433
+#   rustfs                 S3-compatible object storage (raw layer)   http://localhost:9001/rustfs/console/
+#
+# Secrets/ports come from .env (create it with `make env`).
+
+name: fx-rates-airflow
+
+x-airflow-common: &airflow-common
+  build: .
+  image: fx-rates-airflow:local
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg://airflow:airflow@airflow-db/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    # Workers talk to the API server instead of the metadata DB (Airflow 3 Task SDK).
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
+    # Local learning setup only: no login screen, everyone is admin.
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    # Notice new DAG files after 30 s instead of the default 5 min.
+    AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
+    # Connections as environment variables: AIRFLOW_CONN_<CONN_ID>.
+    # They work like connections created in the UI, but are not stored in the metadata DB.
+    AIRFLOW_CONN_FX_POSTGRES: postgres://${FX_DB_USER}:${FX_DB_PASSWORD}@fx-postgres:5432/${FX_DB_NAME}
+    AIRFLOW_CONN_FX_S3: >-
+      {"conn_type": "aws",
+       "login": "${S3_ACCESS_KEY}",
+       "password": "${S3_SECRET_KEY}",
+       "extra": {"endpoint_url": "http://rustfs:9000",
+                 "region_name": "us-east-1",
+                 "config_kwargs": {"s3": {"addressing_style": "path"}}}}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./sql:/opt/airflow/sql
+    - ./src:/opt/airflow/project/src
+    - ./scripts:/opt/airflow/scripts
+    # Logs live in a Docker volume (not in the project folder) to keep the repo clean.
+    - airflow-logs:/opt/airflow/logs
+  depends_on: &airflow-common-depends-on
+    airflow-db:
+      condition: service_healthy
+    fx-postgres:
+      condition: service_healthy
+    rustfs:
+      condition: service_healthy
+
+services:
+  airflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  fx-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${FX_DB_USER}
+      POSTGRES_PASSWORD: ${FX_DB_PASSWORD}
+      POSTGRES_DB: ${FX_DB_NAME}
+    ports:
+      - "${FX_DB_PORT:-5433}:5432"
+    volumes:
+      - fx-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${FX_DB_USER}", "-d", "${FX_DB_NAME}"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  rustfs:
+    image: rustfs/rustfs:1.0.4
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # web console
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:9000/health"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # One-off job: migrate the metadata DB, create the pool and the bucket. Then exits.
+  airflow-init:
+    <<: *airflow-common
+    command: ["bash", "/opt/airflow/scripts/bootstrap.sh"]
+    restart: "no"
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "${AIRFLOW_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Ad-hoc CLI: `docker compose run --rm airflow-cli dags list`
+  airflow-cli:
+    <<: *airflow-common
+    profiles: ["cli"]
+    command: ["version"]
+
+volumes:
+  airflow-db-data:
+  airflow-logs:
+  fx-postgres-data:
+  rustfs-data:

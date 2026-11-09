@@ -1,0 +1,50 @@
+[
+  {
+    "r030": 392,
+    "txt": "Єна",
+    "rate": 0.26843,
+    "cc": "JPY",
+    "exchangedate": "02.01.2024",
+    "special": null
+  },
+  {
+    "r030": 756,
+    "txt": "Швейцарський франк",
+    "rate": 45.2499,
+    "cc": "CHF",
+    "exchangedate": "02.01.2024",
+    "special": null
+  },
+  {
+    "r030": 826,
+    "txt": "Фунт стерлінгів",
+    "rate": 48.5444,
+    "cc": "GBP",
+    "exchangedate": "02.01.2024",
+    "special": null
+  },
+  {
+    "r030": 840,
+    "txt": "Долар США",
+    "rate": 38.0144,
+    "cc": "USD",
+    "exchangedate": "02.01.2024",
+    "special": null
+  },
+  {
+    "r030": 978,
+    "txt": "Євро",
+    "rate": 42.0059,
+    "cc": "EUR",
+    "exchangedate": "02.01.2024",
+    "special": null
+  },
+  {
+    "r030": 985,
+    "txt": "Злотий",
+    "rate": 9.6606,
+    "cc": "PLN",
+    "exchangedate": "02.01.2024",
+    "special": null
+  }
+]
