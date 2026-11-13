@@ -1,6 +1,6 @@
 [project]
 name = "fx-rates-airflow"
-version = "0.1.0"
+version = "1.0.0"
 description = "Learning project: daily FX rates (ECB + NBU) orchestrated with Apache Airflow 3"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

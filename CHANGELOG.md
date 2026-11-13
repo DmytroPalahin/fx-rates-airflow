@@ -7,7 +7,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-First version of the pipeline.
+## [1.0.0] - 2026-11-13
+
+First release of the pipeline.
 
 ### Added
 
@@ -30,4 +32,5 @@ First version of the pipeline.
 - Unit tests and DAG integrity tests; CI with GitHub Actions (lint, tests, image build).
 - Documentation: architecture, Airflow concepts, runbook, exercises and a one-page summary.
 
-[Unreleased]: https://github.com/DmytroPalahin/fx-rates-airflow/commits/main
+[Unreleased]: https://github.com/DmytroPalahin/fx-rates-airflow/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/DmytroPalahin/fx-rates-airflow/releases/tag/v1.0.0
