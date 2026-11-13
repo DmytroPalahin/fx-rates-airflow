@@ -18,9 +18,7 @@ def rec(currency: str, rate: str, day: date = DAY) -> RateRecord:
 
 
 def test_valid_records_pass():
-    validate_records(
-        [rec("USD", "1.09"), rec("GBP", "0.86")], required_currencies=["USD"]
-    )
+    validate_records([rec("USD", "1.09"), rec("GBP", "0.86")], required_currencies=["USD"])
 
 
 @pytest.mark.parametrize(
@@ -35,9 +33,7 @@ def test_valid_records_pass():
     ],
 )
 def test_invalid_records_fail(records, message):
-    with pytest.raises(
-        DataValidationError, match=message.replace("[", r"\[").replace("]", r"\]")
-    ):
+    with pytest.raises(DataValidationError, match=message.replace("[", r"\[").replace("]", r"\]")):
         validate_records(records, required_currencies=["USD"])
 
 
@@ -49,9 +45,7 @@ def test_replace_day_deletes_then_inserts_in_one_transaction():
     conn = MagicMock()
     cursor = conn.cursor.return_value
 
-    rows = storage.replace_day(
-        conn, "nbu", DAY, [rec("USD", "37.98"), rec("EUR", "42.06")]
-    )
+    rows = storage.replace_day(conn, "nbu", DAY, [rec("USD", "37.98"), rec("EUR", "42.06")])
 
     assert rows == 2
     delete_sql, delete_params = cursor.execute.call_args.args

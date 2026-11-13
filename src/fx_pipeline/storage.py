@@ -30,9 +30,7 @@ def raw_key(source: Source, rate_date: date) -> str:
     return f"{source}/rate_date={rate_date.isoformat()}/rates.json"
 
 
-def replace_day(
-    conn: Any, source: Source, rate_date: date, records: Sequence[RateRecord]
-) -> int:
+def replace_day(conn: Any, source: Source, rate_date: date, records: Sequence[RateRecord]) -> int:
     """Replace all rows of ``rate_date`` in one transaction ("delete + insert").
 
     This is what makes the load idempotent: running it twice for the same day

@@ -17,9 +17,7 @@ def validate_records(
     if not records:
         problems.append("no records")
 
-    duplicates = [
-        cur for cur, n in Counter(r.currency for r in records).items() if n > 1
-    ]
+    duplicates = [cur for cur, n in Counter(r.currency for r in records).items() if n > 1]
     if duplicates:
         problems.append(f"duplicate currencies: {sorted(duplicates)}")
 
@@ -27,9 +25,7 @@ def validate_records(
     if non_positive:
         problems.append(f"non-positive rates: {sorted(non_positive)}")
 
-    bad_codes = [
-        r.currency for r in records if len(r.currency) != 3 or not r.currency.isalpha()
-    ]
+    bad_codes = [r.currency for r in records if len(r.currency) != 3 or not r.currency.isalpha()]
     if bad_codes:
         problems.append(f"invalid currency codes: {sorted(bad_codes)}")
 

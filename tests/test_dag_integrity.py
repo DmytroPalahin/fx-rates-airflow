@@ -6,9 +6,8 @@ no scheduler, no network.
 
 from __future__ import annotations
 
-from airflow.dag_processing.dagbag import DagBag
 import pytest
-
+from airflow.dag_processing.dagbag import DagBag
 from conftest import PROJECT_ROOT
 
 EXPECTED_DAGS = {"ingest_ecb_rates", "ingest_nbu_rates", "build_fx_marts"}

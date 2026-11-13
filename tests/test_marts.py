@@ -26,9 +26,7 @@ def test_manual_run_without_events_uses_lookback():
 def test_quality_checks_have_unique_names_and_are_serializable():
     names = [c.name for c in marts.QUALITY_CHECKS]
     assert len(names) == len(set(names))
-    assert all(
-        set(c.as_dict()) == {"name", "description", "sql"} for c in marts.QUALITY_CHECKS
-    )
+    assert all(set(c.as_dict()) == {"name", "description", "sql"} for c in marts.QUALITY_CHECKS)
 
 
 def test_anomaly_report_lists_every_row():

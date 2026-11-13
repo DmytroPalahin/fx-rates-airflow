@@ -82,14 +82,9 @@ def test_publication_status_weekend_is_final_without_waiting():
 def test_publication_status_handles_utc_now():
     # 20:30 UTC in January = 21:30 in Berlin -> past the cutoff.
     now_utc = datetime(2024, 1, 1, 20, 30, tzinfo=ZoneInfo("UTC"))
-    assert (
-        ecb.publication_status(date(2024, 1, 1), date(2023, 12, 29), now_utc)
-        == "not_published"
-    )
+    assert ecb.publication_status(date(2024, 1, 1), date(2023, 12, 29), now_utc) == "not_published"
 
 
 def test_publication_status_rejects_future_payload():
     with pytest.raises(DataValidationError):
-        ecb.publication_status(
-            TUESDAY, date(2024, 1, 3), datetime(2024, 1, 3, tzinfo=BERLIN)
-        )
+        ecb.publication_status(TUESDAY, date(2024, 1, 3), datetime(2024, 1, 3, tzinfo=BERLIN))

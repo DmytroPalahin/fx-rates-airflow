@@ -50,8 +50,6 @@ def parse_rates(payload: list[dict[str, Any]], rate_date: date) -> list[RateReco
                 f"Row for {row['cc']} is dated {row_date}, expected {rate_date}"
             )
         records.append(
-            RateRecord(
-                rate_date=rate_date, currency=row["cc"], rate=Decimal(str(row["rate"]))
-            )
+            RateRecord(rate_date=rate_date, currency=row["cc"], rate=Decimal(str(row["rate"])))
         )
     return sorted(records, key=lambda r: r.currency)

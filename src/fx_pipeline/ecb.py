@@ -51,9 +51,7 @@ def payload_date(payload: dict[str, Any]) -> date:
     return date.fromisoformat(payload["date"])
 
 
-def publication_status(
-    requested: date, returned: date, now: datetime
-) -> PublicationStatus:
+def publication_status(requested: date, returned: date, now: datetime) -> PublicationStatus:
     """Decide whether the rates for ``requested`` exist, will exist, or never will.
 
     * The API serves the requested day -> published.
@@ -66,9 +64,7 @@ def publication_status(
     if returned == requested:
         return PublicationStatus.PUBLISHED
     if returned > requested:
-        raise DataValidationError(
-            f"Asked for {requested}, but the API returned {returned}"
-        )
+        raise DataValidationError(f"Asked for {requested}, but the API returned {returned}")
     if requested.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
         return PublicationStatus.NOT_PUBLISHED
 
@@ -82,9 +78,7 @@ def publication_status(
 def parse_rates(payload: dict[str, Any], rate_date: date) -> list[RateRecord]:
     """Turn a Frankfurter payload into records. Fails if it is for another day."""
     if payload.get("base") != BASE_CURRENCY:
-        raise DataValidationError(
-            f"Expected base {BASE_CURRENCY}, got {payload.get('base')!r}"
-        )
+        raise DataValidationError(f"Expected base {BASE_CURRENCY}, got {payload.get('base')!r}")
 
     returned = payload_date(payload)
     if returned != rate_date:

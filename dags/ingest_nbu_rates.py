@@ -20,15 +20,20 @@ extract_to_raw ─> load_to_core ─> (asset fx_core_nbu_rates)
 
 from __future__ import annotations
 
+import json
 from contextlib import closing
 from datetime import timedelta
-import json
 
+import pendulum
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sdk import CronTriggerTimetable, dag, task
 from airflow.sdk.exceptions import AirflowFailException
+
+from fx_pipeline import nbu, storage
+from fx_pipeline.models import DataValidationError
+from fx_pipeline.validation import validate_records
 from fx_shared.assets import NBU_RATES
 from fx_shared.runtime import target_date
 from fx_shared.settings import (
@@ -39,18 +44,11 @@ from fx_shared.settings import (
     RAW_BUCKET,
     SQL_DIR,
 )
-import pendulum
-
-from fx_pipeline import nbu, storage
-from fx_pipeline.models import DataValidationError
-from fx_pipeline.validation import validate_records
 
 
 @dag(
     dag_id="ingest_nbu_rates",
-    schedule=CronTriggerTimetable(
-        "0 9 * * *", timezone="Europe/Kyiv"
-    ),  # every day 09h00 Kyiv time
+    schedule=CronTriggerTimetable("0 9 * * *", timezone="Europe/Kyiv"),  # every day 09h00 Kyiv time
     start_date=pendulum.datetime(2000, 1, 1, tz="Europe/Kyiv"),
     catchup=False,
     max_active_runs=4,
@@ -90,9 +88,7 @@ def ingest_nbu_rates():
     @task(outlets=[NBU_RATES])
     def load_to_core(raw_object_key: str, **context) -> int:
         rate_date = target_date(context, nbu.NBU_TIMEZONE)
-        raw = S3Hook(aws_conn_id=FX_S3_CONN_ID).read_key(
-            raw_object_key, bucket_name=RAW_BUCKET
-        )
+        raw = S3Hook(aws_conn_id=FX_S3_CONN_ID).read_key(raw_object_key, bucket_name=RAW_BUCKET)
 
         try:
             records = nbu.parse_rates(json.loads(raw), rate_date)
@@ -100,9 +96,7 @@ def ingest_nbu_rates():
         except DataValidationError as err:
             raise AirflowFailException(str(err)) from err
 
-        with closing(
-            PostgresHook(postgres_conn_id=FX_POSTGRES_CONN_ID).get_conn()
-        ) as conn:
+        with closing(PostgresHook(postgres_conn_id=FX_POSTGRES_CONN_ID).get_conn()) as conn:
             rows = storage.replace_day(conn, "nbu", rate_date, records)
 
         context["outlet_events"][NBU_RATES].extra = {

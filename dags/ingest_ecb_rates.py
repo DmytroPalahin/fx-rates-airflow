@@ -21,14 +21,19 @@ wait_for_publication ─> extract_to_raw ─> load_to_core ─> (asset fx_core_e
 
 from __future__ import annotations
 
-from contextlib import closing
 import json
+from contextlib import closing
 
+import pendulum
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sdk import CronTriggerTimetable, PokeReturnValue, dag, task
 from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
+
+from fx_pipeline import ecb, storage
+from fx_pipeline.models import DataValidationError
+from fx_pipeline.validation import validate_records
 from fx_shared.assets import ECB_RATES
 from fx_shared.runtime import target_date
 from fx_shared.settings import (
@@ -39,11 +44,6 @@ from fx_shared.settings import (
     RAW_BUCKET,
     SQL_DIR,
 )
-import pendulum
-
-from fx_pipeline import ecb, storage
-from fx_pipeline.models import DataValidationError
-from fx_pipeline.validation import validate_records
 
 
 @dag(
@@ -77,9 +77,7 @@ def ingest_ecb_rates():
         """Done when the API serves rates for our day; skip the run if it never will."""
         rate_date = target_date(context, ecb.ECB_TIMEZONE)
         payload = ecb.fetch_rates(rate_date)
-        status = ecb.publication_status(
-            rate_date, ecb.payload_date(payload), pendulum.now("UTC")
-        )
+        status = ecb.publication_status(rate_date, ecb.payload_date(payload), pendulum.now("UTC"))
 
         if status is ecb.PublicationStatus.NOT_PUBLISHED:
             # Skipped is not failed: the run ends green, downstream tasks are skipped.
@@ -107,9 +105,7 @@ def ingest_ecb_rates():
     def load_to_core(raw_object_key: str, **context) -> int:
         """Parse + validate the raw file and replace the day in core.ecb_rates."""
         rate_date = target_date(context, ecb.ECB_TIMEZONE)
-        raw = S3Hook(aws_conn_id=FX_S3_CONN_ID).read_key(
-            raw_object_key, bucket_name=RAW_BUCKET
-        )
+        raw = S3Hook(aws_conn_id=FX_S3_CONN_ID).read_key(raw_object_key, bucket_name=RAW_BUCKET)
 
         try:
             records = ecb.parse_rates(json.loads(raw), rate_date)
@@ -118,9 +114,7 @@ def ingest_ecb_rates():
             # Bad data will not fix itself: fail immediately, without retries.
             raise AirflowFailException(str(err)) from err
 
-        with closing(
-            PostgresHook(postgres_conn_id=FX_POSTGRES_CONN_ID).get_conn()
-        ) as conn:
+        with closing(PostgresHook(postgres_conn_id=FX_POSTGRES_CONN_ID).get_conn()) as conn:
             rows = storage.replace_day(conn, "ecb", rate_date, records)
 
         # Metadata attached to the asset event; build_fx_marts reads it to know
