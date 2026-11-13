@@ -1,0 +1,9 @@
+# Normalize line endings: text files are stored with LF in the repository.
+* text=auto eol=lf
+
+# Shell scripts run inside Linux containers.
+*.sh text eol=lf
+
+# Binary files must never be touched.
+*.png binary
+*.pdf binary

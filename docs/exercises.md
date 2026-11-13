@@ -44,6 +44,8 @@ Do them on a git branch. Each exercise says what to watch in the UI.
  1. **CeleryExecutor.** Add Redis and an `airflow-worker` service (copy from the official
     docker-compose), switch `AIRFLOW__CORE__EXECUTOR`, and scale workers:
     `docker compose up -d --scale airflow-worker=2`.
- 2. **CI.** Add a GitHub Actions workflow that runs `uv sync` + `make lint test` on every push.
+ 2. **CI end to end.** `.github/workflows/ci.yml` already lints, tests and builds the image.
+    Add a job that starts the stack with `docker compose up --wait` and runs one DAG with
+    `airflow dags test ingest_nbu_rates 2026-11-02`.
  3. **dbt.** Move the two mart SQL files into a dbt project and run it from Airflow with
     `astronomer-cosmos`, keeping the asset trigger.

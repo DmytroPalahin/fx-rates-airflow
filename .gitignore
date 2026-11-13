@@ -225,7 +225,6 @@ node_modules
 l10n/bundle.l10n.json
 .npmrc
 .prettieignore
-pull_request_template.md
 # *.vsix
 # .eslintignore
 # .eslintrc.js
