@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs uv; Python 3.12 comes from .python-version.
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Exactly the versions of uv.lock, Airflow included (the DAG tests parse the DAGs).
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Unit and DAG integrity tests
+        run: uv run pytest
+
+  image:
+    name: Build the Airflow image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: docker build --tag fx-rates-airflow:ci .
+
+      # The package must be importable inside the image, where the tasks run.
+      - name: Import the package in the image
+        run: docker run --rm --entrypoint python fx-rates-airflow:ci -c "import fx_pipeline, airflow; print(airflow.__version__)"
